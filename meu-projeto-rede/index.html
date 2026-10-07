@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Rede Universal</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #121214; color: #e1e1e6; margin: 0; padding: 40px; text-align: center; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #00b37e; margin-bottom: 10px; }
+        p { color: #8d8d99; margin-bottom: 30px; }
+        
+        /* Estilos do Formulário de Adicionar */
+        .form-adicionar { background: #202024; border: 1px solid #323238; border-radius: 8px; padding: 20px; margin-bottom: 30px; text-align: left; }
+        .form-adicionar h3 { margin-top: 0; color: #00b37e; }
+        .grupo-input { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .grupo-input label { margin-bottom: 5px; font-size: 14px; color: #c4c4cc; }
+        .grupo-input input, .grupo-input select { background: #121214; border: 1px solid #323238; padding: 10px; border-radius: 4px; color: #fff; font-size: 16px; }
+        .btn-salvar { background-color: #00b37e; color: #fff; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; }
+        .btn-salvar:hover { background-color: #00875f; }
+
+        /* Lista de Dispositivos */
+        .grid-dispositivos { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        .card-dispositivo { background: #202024; border: 1px solid #323238; border-radius: 8px; padding: 20px; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+        .info-disp h3 { margin: 0 0 5px 0; color: #fff; }
+        .info-disp span { color: #8d8d99; font-family: monospace; font-size: 14px; }
+        .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 4px; }
+        .status-online { background: rgba(0, 179, 126, 0.1); color: #00b37e; }
+        .btn-entrar { background-color: #00b37e; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; text-decoration: none; transition: background 0.2s; }
+        .btn-entrar:hover { background-color: #00875f; }
+        .btn-remover { background: none; border: none; color: #f75a68; cursor: pointer; margin-left: 15px; font-size: 14px; }
+        .btn-remover:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Visualizador de Dispositivos Universais</h1>
+        <p>Gere e aceda aos teus servidores e periféricos na rede local</p>
+
+        <!-- NOVO: Formulário para Adicionar Servidor -->
+        <div class="form-adicionar">
+            <h3>➕ Adicionar Novo Servidor</h3>
+            <div class="grupo-input">
+                <label for="nome">Nome do Dispositivo</label>
+                <input type="text" id="nome" placeholder="Ex: ESP32 Quarto, Roteador Principal">
+            </div>
+            <div class="grupo-input">
+                <label for="ip">Endereço IP</label>
+                <input type="text" id="ip" placeholder="Ex: 192.168.0.1">
+            </div>
+            <div class="grupo-input">
+                <label for="tipo">Classe / Categoria</label>
+                <select id="tipo">
+                    <option value="Periférico IoT">Periférico IoT (ESP32 / Arduino)</option>
+                    <option value="Infraestrutura">Infraestrutura (Roteador / Modem)</option>
+                    <option value="Servidor Local">Servidor Local (PC / Raspberry Pi)</option>
+                </select>
+            </div>
+            <button class="btn-salvar" onclick="adicionarServidor()">Adicionar à Lista</button>
+        </div>
+
+        <!-- Lista onde aparecem os servidores -->
+        <div class="grid-dispositivos" id="lista-dispositivos">
+            <!-- Injetados via JS -->
+        </div>
+    </div>
+
+    <script>
+        // Lista padrão caso a memória esteja vazia
+        const servidoresPadrao = [
+            { nome: "Gateway Central / Roteador", ip: "192.168.0.1", tipo: "Infraestrutura" }
+        ];
+
+        // Carrega os servidores guardados na memória ou usa os padrões
+        function obterServidores() {
+            const guardados = localStorage.getItem('meus_servidores');
+            return guardados ? JSON.parse(guardados) : servidoresPadrao;
+        }
+
+        // Renderiza a lista no ecrã
+        function renderizarPainel() {
+            const lista = obterServidores();
+            const container = document.getElementById('lista-dispositivos');
+            container.innerHTML = '';
+
+            lista.forEach((disp, index) => {
+                const urlAcesso = disp.ip.startsWith('http') ? disp.ip : `http://${disp.ip}`;
+                
+                const card = document.createElement('div');
+                card.className = 'card-dispositivo';
+                card.innerHTML = `
+                    <div class="info-disp">
+                        <h3>${disp.nome}</h3>
+                        <span>IP: ${disp.ip} | Classe: ${disp.tipo}</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <span class="status status-online" style="margin-right: 15px;">● Ativo</span>
+                        <a href="${urlAcesso}" target="_blank" class="btn-entrar">Aceder Interface</a>
+                        <button class="btn-remover" onclick="removerServidor(${index})">Remover</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Adiciona o novo servidor introduzido nos inputs
+        function adicionarServidor() {
+            const nomeInput = document.getElementById('nome').value.trim();
+            const ipInput = document.getElementById('ip').value.trim();
+            const tipoInput = document.getElementById('tipo').value;
+
+            if (!nomeInput || !ipInput) {
+                alert("Por favor, preenche o Nome e o IP do servidor!");
+                return;
+            }
+
+            const listaAtual = obterServidores();
+            listaAtual.push({ nome: nomeInput, ip: ipInput, tipo: tipoInput });
+
+            // Guarda a lista atualizada na memória do navegador
+            localStorage.setItem('meus_servidores', JSON.stringify(listaAtual));
+
+            // Limpa os campos do formulário
+            document.getElementById('nome').value = '';
+            document.getElementById('ip').value = '';
+
+            // Atualiza a interface
+            renderizarPainel();
+        }
+
+        // Remove um servidor da lista
+        function removerServidor(index) {
+            const listaAtual = obterServidores();
+            listaAtual.splice(index, 1);
+            localStorage.setItem('meus_servidores', JSON.stringify(listaAtual));
+            renderizarPainel();
+        }
+
+        // Executa ao abrir a página
+        window.onload = renderizarPainel;
+    </script>
+</body>
+</html>
